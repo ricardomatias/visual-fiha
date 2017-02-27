@@ -62,6 +62,7 @@
     "npm-run-all": "^4.0.0",
     "ramda": "^0.23.0",
     "rimraf": "^2.5.4",
+    "three": "^0.84.0",
     "txml": "^1.0.17",
     "webpack": "^2.2.1",
     "worker-loader": "^0.7.1"
