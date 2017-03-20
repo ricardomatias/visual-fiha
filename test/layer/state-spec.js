@@ -9,21 +9,11 @@ describe('Layer State', function () {
   require('./../../src/layer/svg/state');
 
   var defaultLayerProperties = [
+    'opacity',
     'active',
-    // 'mappings',
-    'mixBlendMode',
     'name',
-    // 'opacity',
-    // 'rotateX',
-    // 'rotateY',
-    // 'rotateZ',
-    // 'scaleX',
-    // 'scaleY',
-    // 'skewX',
-    // 'skewY',
-    // 'translateX',
-    // 'translateY',
     'type',
+    'layerStyles',
     'zIndex'
   ];
   var instance;

@@ -4,17 +4,24 @@ var canvasCompleter = require('./../layer/canvas/canvas-completer');
 
 var AceEditor = View.extend({
   editCode: function(options) {
-    if (!this.editor) this.render();
+    options.autoApply = !!options.autoApply;
+    if (options.autoApply && typeof options.onvalidchange !== 'function') throw new Error('Missing onvalidchange function option');
+    if (!options.autoApply && typeof options.onapply !== 'function') throw new Error('Missing onapply function option');
     options.original = options.script = options.script.toString();
-    this._cleanup().set(options);
+    this._cleanup().set(options).render();
   },
 
   template: `
     <section class="row code-editor rows">
-      <!-- <header>
-        <h3></h3>
-      </header> -->
+      <header>
+        <div class="columns">
+          <h3 class="column"><span data-hook="editor-title"></span> <small data-hook="editor-language"></small></h3>
+          <div class="column no-grow show-origin"><button class="vfi-eye" name="show-origin"></button></div>
+        </div>
+      </header>
+
       <div class="ace-editor row grow-xl"></div>
+
       <div class="ace-controls row no-grow gutter columns">
         <div class="column"></div>
         <div class="column no-grow gutter-right">
@@ -26,6 +33,7 @@ var AceEditor = View.extend({
   `,
 
   session: {
+    title: 'string',
     language: {
       type: 'string',
       values: ['javascript', 'yaml', 'css'],
@@ -37,7 +45,9 @@ var AceEditor = View.extend({
     editor: 'any',
     original: ['string', true, ''],
     script: ['string', true, ''],
+    onshoworigin: 'any',
     onvalidchange: 'any',
+    onapply: 'any',
     validator: 'any'
   },
 
@@ -51,27 +61,53 @@ var AceEditor = View.extend({
   },
 
   bindings: {
-    language: {
-      type: function() {
-        if (!this.editor) return;
-        this.editor.getSession().setMode('ace/mode/' + this.language);
-      }
-    },
     script: {
       type: function() {
         if (!this.editor) return;
         this.editor.setValue(this.script);
       }
     },
-    pristine: {
-      type: 'booleanClass',
-      name: 'pristine'
-    },
+
+    pristine: [
+      {
+          type: 'booleanClass',
+          name: 'pristine'
+      },
+      {
+        selector: '[name=cancel]',
+        type: 'booleanAttribute',
+        name: 'disabled'
+      },
+      {
+        selector: '[name=apply]',
+        type: 'booleanAttribute',
+        name: 'disabled'
+      }
+    ],
+
     autoApply: {
-      selector: '.ace-controls',
+      type: 'booleanClass',
+      name: 'autoapply'
+    },
+
+    onshoworigin: {
       type: 'toggle',
-      invert: true
-    }
+      selector: '.show-origin'
+    },
+
+    title: '[data-hook=editor-title]',
+    language: '[data-hook=editor-language]'
+  },
+
+  events: {
+    'click [name=show-origin]': '_showOrigin',
+    'click [name="cancel"]': '_cancel',
+    'click [name="apply"]': '_apply'
+  },
+
+  _showOrigin: function() {
+    var fn = this.onshoworigin;
+    if (typeof fn === 'function') fn();
   },
 
   setPristine: function() {
@@ -93,9 +129,10 @@ var AceEditor = View.extend({
     return this;
   },
 
-  validateScript: function() {
-    if (typeof this.validator === 'function') {
-      this.validator(this.script);
+  validateScript: function(script) {
+    var validator = this.validator;
+    if (typeof validator === 'function') {
+      return validator.call(this, script);
     }
   },
 
@@ -108,12 +145,27 @@ var AceEditor = View.extend({
       });
   },
 
-  render: function() {
-    if (this.editor) { return this; }
-    var view = this;
-    view.renderWithTemplate();
+  _cancel: function() {},
 
+  _apply: function() {
+    var view = this;
+    var editor = view.editor;
+    var str = editor.getValue();
+    if (typeof view.onapply === 'function') {
+      view.onapply(str);
+    }
+    view.set('script', str, {silent: true});
+    view.set('original', str, {silent: true});
+    delete view._cache.pristine;
+    view.trigger('change:pristine', view, view.script === view.original);
+  },
+
+  _makeEditor: function() {
+    var view = this;
     var ace = window.ace;
+    if (view.editor) view.editor.destroy();
+
+    var hasAnnotations = ['javascript', 'css'].indexOf(view.language) > -1;
     var editor = view.editor = ace.edit(view.query('.ace-editor'));
 
     function changed() {
@@ -123,40 +175,53 @@ var AceEditor = View.extend({
       }
 
       var str = editor.getValue();
-      view.set('script', str, {silent: true});
-      if (typeof view.onvalidchange === 'function') {
+      if (view.autoApply && typeof view.onvalidchange === 'function' && view.script !== str) {
         view.onvalidchange(str);
       }
+      view.set('script', str, {silent: true});
+      delete view._cache.pristine;
+      view.trigger('change:pristine', view, view.script === view.original);
     }
-
-    var languageTools = ace.require('ace/ext/language_tools');
-    editor.setOptions({
-      enableBasicAutocompletion: true,
-      enableSnippets: true,
-      enableLiveAutocompletion: false
-    });
 
     editor.$blockScrolling = Infinity;
     editor.setTheme('ace/theme/monokai');
     editor.setShowInvisibles();
-    editor.on('change', changed);
     editor.setFontSize(16);
 
-    var session = editor.getSession();
+    if (view.language === 'javascript') {
+      var languageTools = ace.require('ace/ext/language_tools');
+      editor.setOptions({
+        enableBasicAutocompletion: true,
+        enableSnippets: true,
+        enableLiveAutocompletion: false
+      });
+      languageTools.addCompleter(canvasCompleter);
+    }
 
-    session.on('changeAnnotation', changed);
-    session.setMode('ace/mode/javascript');
+    var session = editor.getSession();
+    session.setMode('ace/mode/' + view.language);
     session.setUseSoftTabs(true);
     session.setTabSize(2);
     session.setUseWrapMode(true);
 
-    languageTools.addCompleter(canvasCompleter);
-
-    if (view.original) {
-      editor.setValue(view.original);
+    if (hasAnnotations) {
+      session.on('changeAnnotation', changed);
+    }
+    else {
+      session.on('change', changed);
     }
 
+    editor.setValue(view.script || view.original || '');
+
     return view;
+  },
+
+  render: function() {
+    View.prototype.render.apply(this, arguments);
+
+    this._makeEditor();
+
+    return this;
   },
 
   remove: function() {

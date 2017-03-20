@@ -4,130 +4,23 @@ var Collection = require('ampersand-collection');
 var ScreenLayerState = require('./../state');
 var mockedCtx = require('./mocked-canvas-2d-context');
 var compileFunction = require('./compile-draw-function');
-
+function drawLayerCtx() {
+  /*
+    You can access the canvas 2d context with the global ctx
+  */
+}
 
 var CanvasLayer = State.extend({
   scripts: require('./scripts'),
 
   idAttribute: 'name',
-  /*
-  initialize: function() {
-    State.prototype.initialize.apply(this, arguments);
-    var canvasLayer = this;
-    var screenLayer = canvasLayer.collection.parent;
-
-    canvasLayer.on('change', function() {
-      // trigger change on the screen layer
-      screenLayer._changed = {
-        canvasLayers: screenLayer.canvasLayers.serialize()
-      };
-      screenLayer.trigger('change');
-    });
-  },
-  */
   cache: {},
 
   props: {
     zIndex: ['number', true, 0],
     name: ['string', true, null],
     active: ['boolean', true, true],
-
-    // fillStyle: {
-    //   type: 'string',
-    //   default: '#000000'
-    // },
-    // filter: {
-    //   type: 'string',
-    //   default: 'none'
-    // },
-    // font: {
-    //   type: 'string',
-    //   default: '1vw monospace'// hehehe
-    // },
-    // globalAlpha: {
-    //   type: 'number',
-    //   default: 1
-    // },
-    // globalCompositeOperation: {
-    //   type: 'string',
-    //   required: true,
-    //   default: 'source-over',
-    //   values: [
-    //     'source-over',
-    //     'source-in',
-    //     'source-out',
-    //     'source-atop',
-    //     'destination-over',
-    //     'destination-in',
-    //     'destination-out',
-    //     'destination-atop',
-    //     'lighter',
-    //     'copy',
-    //     'xor',
-    //     ''
-    //   ]
-    // },
-    // imageSmoothingEnabled: {
-    //   type: 'boolean',
-    //   default: true
-    // },
-    // imageSmoothingQuality: {
-    //   type: 'string',
-    //   default: 'low'
-    // },
-    // lineCap: {
-    //   type: 'string',
-    //   default: 'butt'
-    // },
-    // lineDashOffset: {
-    //   type: 'number',
-    //   default: 0
-    // },
-    // lineJoin: {
-    //   type: 'string',
-    //   default: 'miter'
-    // },
-    // lineWidth: {
-    //   type: 'number',
-    //   default: 1
-    // },
-    // miterLimit: {
-    //   type: 'number',
-    //   default: 10
-    // },
-    // shadowBlur: {
-    //   type: 'number',
-    //   default: 0
-    // },
-    // shadowColor: {
-    //   type: 'string',
-    //   default: 'rgba(0, 0, 0, 0)'
-    // },
-    // shadowOffsetX: {
-    //   type: 'number',
-    //   default: 0
-    // },
-    // shadowOffsetY: {
-    //   type: 'number',
-    //   default: 0
-    // },
-    // strokeStyle: {
-    //   type: 'string',
-    //   default: '#000000'
-    // },
-    // textAlign: {
-    //   type: 'string',
-    //   default: 'start'
-    // },
-    // textBaseline: {
-    //   type: 'string',
-    //   default: 'alphabetic'
-    // },
-
-
-
-
-    drawFunction: 'any'
+    drawFunction: ['any', true, function() { return drawLayerCtx; }]
   },
 
   serialize: function() {
@@ -137,22 +30,6 @@ var CanvasLayer = State.extend({
 
 
     var props = this.serializationProps.props || [];
-    /*
-    if (props.length) {
-      returned.props = {};
-      props.forEach(function(propName) {
-        returned.props[propName] = obj[propName];
-      });
-    }
-
-    for (propName in obj) {
-      if (props.indexOf(propName) < 0) {
-        returned[propName] = obj[propName];
-      }
-    }
-    */
-
-    // better like that??
     if (props.length) {
       returned.props = {};
     }
@@ -160,17 +37,13 @@ var CanvasLayer = State.extend({
     // var propName;
     var def = this.constructor.prototype._definition;
     for (propName in obj) {
-      // if (props.indexOf(propName) < 0) {
       returned[propName] = obj[propName];
-      // }
-      // else {
-      //   returned.props[propName] = obj[propName];
-      // }
+
       if (props.indexOf(propName) > -1) {
         returned.props[propName] = def[propName];
       }
     }
-    // returned.props = def;
+
     var type = typeof this.drawFunction;
     if (type === 'function') {
       returned.drawFunction = this.drawFunction.toString();
@@ -180,6 +53,10 @@ var CanvasLayer = State.extend({
     }
     returned.name = this.name;
     return returned;
+  },
+
+  toJSON: function(...args) {
+    return this.serialize(...args);
   },
 
   derived: {
@@ -205,7 +82,7 @@ var CanvasLayer = State.extend({
     screenState: {
       deps: [],
       fn: function() {
-        return this.collection.parent.collection.parent;
+        return this.collection.parent.screenState;
       }
     },
 
@@ -253,7 +130,7 @@ var CanvasLayer = State.extend({
         }
 
         if (err) {
-          // console.warn('draw function error', err.stack);
+          console.warn('draw function error', err.stack);
           fn = function() { return err; };
         }
 
@@ -267,47 +144,20 @@ var _CanvasLayersCache = {};
 var CanvasLayers = Collection.extend({
   mainIndex: CanvasLayer.prototype.idAttribute,
 
-  comparator: 'weight',
+  comparator: 'zIndex',
 
   model: function (attrs, options) {
     var def = {
       props: attrs.props || {},
-      // session: attrs.session || {},
-      // derived: attrs.derived || {},
       serializationProps: {
         props: [].concat([
           'active',
-          //
-          // 'fillStyle',
-          // 'filter',
-          // 'font',
-          // 'globalAlpha',
-          // 'globalCompositeOperation',
-          // 'imageSmoothingEnabled',
-          // 'imageSmoothingQuality',
-          // 'lineCap',
-          // 'lineDashOffset',
-          // 'lineJoin',
-          // 'lineWidth',
-          // 'miterLimit',
-          // 'shadowBlur',
-          // 'shadowColor',
-          // 'shadowOffsetX',
-          // 'shadowOffsetY',
-          // 'strokeStyle',
-          // 'textAlign',
-          // 'textBaseline'
         ], Object.keys(attrs.props || {})),
-        // session: Object.keys(attrs.session),
-        // derived: Object.keys(attrs.prderived)
       }
     };
     var Constructor = _CanvasLayersCache[attrs.name] || CanvasLayer.extend(def);
     _CanvasLayersCache[attrs.name] = Constructor;
     var inst =  new Constructor(attrs, options);
-    inst.on('change:zIndex', function() {
-      inst.collection.sort();
-    });
     if (options.init === false) inst.initialize();
     return inst;
   }
@@ -316,7 +166,7 @@ var CanvasLayers = Collection.extend({
 
 module.exports = ScreenLayerState.types.canvas = ScreenLayerState.extend({
   props: {
-    clear: ['boolean', true, true]
+    clear: ['number', true, 1]
   },
 
   collections: {

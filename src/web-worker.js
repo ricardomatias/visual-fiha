@@ -1,8 +1,31 @@
 /* jshint worker:true */
 'use strict';
-// var logger = require('./logging')('orange');
-
 var worker = self;
+require.ensure([
+  'ramda',
+  'lodash.assign',
+  'ampersand-state',
+  'ampersand-collection'
+], function() {
+require.ensure([
+  './mapping/data',
+], function() {
+require.ensure([
+  './layer/state',
+  './layer/svg/state',
+  './layer/img/state',
+  './layer/txt/state',
+  './layer/video/state',
+  './layer/canvas/state',
+], function() {
+require.ensure([
+  './screen/state',
+], function() {
+require.ensure([
+  './resolve',
+  './signal/collection'
+], function() {
+// ---------------------------------------------------------------
 var resolve = require('./resolve');
 
 var Mappings = require('./mapping/data');
@@ -31,20 +54,6 @@ var __dataContext = {
 worker.mappings = new Mappings([], {
   context: __dataContext
 });
-
-
-
-
-
-
-// var localForage = require('./storage');
-// function snapshot() {
-//   localForage.setItem('snapshot', {
-//     screen: worker.screen.serialize(),
-//     signals: worker.signals.serialize()
-//   });//.then(console.info.bind(console), console.error.bind(console));
-// }
-// setInterval(snapshot, 5000);
 
 
 function signature(fn) {
@@ -108,13 +117,13 @@ function _animate() {
   worker.signals.trigger('frametime', __dataContext.frametime);
 
   emitCommand('updateSignals', {
-    signals: worker.signals.serialize()
+    signals: worker.signals.serialize().filter(o => o.name)
   });
 
   broadcastCommand('updateLayers', {
     frametime: __dataContext.frametime,
     audio: worker.audio,
-    layers: worker.layers.serialize()
+    layers: worker.layers.serialize().filter(o => o.name)
   });
 
 
@@ -207,6 +216,9 @@ var commands = {
   propChange: function(path, property, value) {
     var obj = resolve(path, __dataContext);
     if (!obj) return;
+    if (obj[property] && obj[property].isCollection) {
+      return obj[property].set(Array.isArray(value) ? value : [value]);
+    }
     obj.set(property, value);
   },
 
@@ -293,14 +305,10 @@ var commands = {
       layerName: layerName
     });
   },
-  updateLayer: function(layer, layerName) {
-    var state = worker.layers.get(layerName);
+  updateLayer: function(layer, broadcast) {
+    var state = worker.layers.get(layer.name);
     state.set(layer);
-
-    broadcastCommand('updateLayer', {
-      layer: layer,
-      layerName: layerName
-    });
+    if (broadcast) broadcastCommand('updateLayer', {layer: layer});
   }
 };
 
@@ -341,14 +349,13 @@ worker.addEventListener('message', function(evt) {
     return evt.data.payload[argName];
   });
 
-  // if (['heartbeat'].indexOf(commandName) === -1) {
-  //   _executedCommands.push({
-  //     time: Date.now(),
-  //     command: commandName,
-  //     payload: evt.data.payload
-  //   });
-  // }
-
+  if (['heartbeat'].indexOf(commandName) < 0) {
+    // _executedCommands.push({
+    //   time: Date.now(),
+    //   command: commandName,
+    //   payload: evt.data.payload
+    // });
+  }
   var result = command.apply(worker, commandArgs);
   if (!eventId) return;
   worker.postMessage({
@@ -361,3 +368,16 @@ worker.addEventListener('message', function(evt) {
   passive: true,
   capture: false
 });
+
+worker.layers.on('emitCommand', function(...args) {
+  emitCommand(...args);
+});
+worker.layers.on('broadcastCommand', function(...args) {
+  broadcastCommand(...args);
+});
+// --------------------------------------------------------------
+}, 'worker-deps');
+}, 'screen-state');
+}, 'layer-state');
+}, 'mapping-data');
+}, 'ampersand-data');

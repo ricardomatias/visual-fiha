@@ -2,7 +2,7 @@
 var Collection = require('ampersand-collection');
 var State = require('ampersand-state');
 var View = require('./../controller/control-view');
-
+var uniq = require('lodash.uniq');
 
 function filterEmpty(v) { return !!v; }
 
@@ -66,9 +66,7 @@ function sourceSuggestions(origin) {
       });
     });
 
-  return results/*.filter(function(val) {
-    return kepts.indexOf(val) < 0;
-  })*/;
+  return uniq(results);
 }
 
 
@@ -130,9 +128,7 @@ function targetSuggestions(origin) {
       });
     });
 
-  return results/*.filter(function(val) {
-    return kepts.indexOf(val) < 0;
-  })*/;
+  return uniq(results);
 }
 
 
@@ -210,7 +206,7 @@ var EmitterView = View.extend({
   template: `<section class="mapping-emitter-view">
   <header class="columns">
     <div class="column emitter-name gutter"></div>
-    <div class="column no-grow"><button name="edit-transform-function" class="vfi-cog-alt"></button></div>
+    <div class="column no-grow"><button name="edit-transform-function" class="vfi-code"></button></div>
     <div class="column"><input type="text" name="emitter-source" /></div>
     <div class="column no-grow"><button name="remove-emitter" class="vfi-trash-empty"></button></div>
   </header>
@@ -275,8 +271,8 @@ var EmitterView = View.extend({
     var editor = rootView.getEditor();
     var model = this.model;
     editor.editCode({
-      script: model.transformFunction.toString(),
-      // autoApply: true,
+      script: (model.transformFunction || function(val) { return val; }).toString(),
+      autoApply: true,
       language: 'javascript',
       onvalidchange: function doneEditingTransformFunction(str) {
         var mapping = model.serialize();
@@ -339,15 +335,17 @@ var MappingsControlView = View.extend({
   _handleSourceFocus: function(evt) {
     var rootView = this.rootView;
     var helper = rootView.suggestionHelper;
+    var midiSources = this.rootView.midiSources();
 
     var results = [];
     rootView.signals.forEach(function(model) {
       var id = model.getId();
-      var suggestions = sourceSuggestions(model);
-      results = results.concat(suggestions.filter(filterEmpty).map(function(name) {
+      results = results.concat(sourceSuggestions(model).filter(filterEmpty).map(function(name) {
         return 'signals.' + id + '.' + name;
       }));
     });
+
+    results = midiSources.concat(results);
 
     helper.attach(evt.target, function(selected) {
       evt.target.value = selected;
@@ -369,16 +367,6 @@ var MappingsControlView = View.extend({
   },
 
 
-  subviews: {
-    mappingsList: {
-      waitFor: 'collection',
-      selector: '.items',
-      prepareView: function(el) {
-        return this.renderCollection(this.collection, EmitterView, el);
-      }
-    }
-  },
-
   derived: {
     suggestionHelper: {
       deps: ['rootView'],
@@ -387,6 +375,12 @@ var MappingsControlView = View.extend({
       }
     }
   },
+
+  render: function() {
+    View.prototype.render.apply(this, arguments);
+    this.mappingsList = this.renderCollection(this.collection, EmitterView, this.query('.items'));
+    return this;
+  }
 });
 
 module.exports = MappingsControlView;

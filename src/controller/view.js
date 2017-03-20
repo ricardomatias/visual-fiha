@@ -10,57 +10,12 @@ var AceEditor = require('./ace-view');
 var RegionView = require('./region-view');
 var GistView = require('./gist-view');
 var MappingsControlView = require('./../mapping/control-view');
-var jsYAML = require('js-yaml');
+var ControlScreenControls = require('./control-screen-controls-view');
+var LocalforageView = require('./localforage-view');
 var objectPath = require('./../object-path');
 // var Timeline = require('./timeline-view');
 
 
-var ControlScreenControls = View.extend({
-  template: `<div class="column columns control-screen-controls">
-    <div class="column">
-      <button name="control-screen">Control screen</button>
-    </div>
-
-    <div class="column columns control-screen-size">
-      <div class="column">
-        <input type="number" min="25" max="75" name="control-screen-width" />
-      </div>
-
-      <div class="column">
-        <input type="number" min="25" max="75" name="control-screen-height" />
-      </div>
-    </div>
-  </div>`,
-
-  props: {
-    active: ['boolean', true, true],
-    width: ['number', true, 33],
-    height: ['number', true, 33],
-  },
-
-  bindings: {
-    'width': {type: 'value', selector: '[name="control-screen-width"]'},
-    'height': {type: 'value', selector: '[name="control-screen-height"]'}
-  },
-
-  events: {
-    'click [name="control-screen"]': 'toggleActive',
-    'change [name="control-screen-width"]': 'setWidth',
-    'change [name="control-screen-height"]': 'setHeight'
-  },
-
-  toggleActive: function() {
-    this.toggle('active');
-  },
-
-  setWidth: function(evt) {
-    this.width = Number(evt.target.value);
-  },
-
-  setHeight: function(evt) {
-    this.height = Number(evt.target.value);
-  }
-});
 
 
 
@@ -104,7 +59,22 @@ var ControllerView = View.extend({
       controllerView.once('change:el', controllerView._attachSuggestionHelper);
     }
 
+    controllerView.listenTo(controllerView.model.layers, 'sendCommand', function(...args) {
+      controllerView.sendCommand(...args);
+    });
+
     this._animate();
+  },
+
+  midiSources: function() {
+    var eventNames = [];
+    this.midi.inputs.forEach(function(midiInput) {
+      var id = midiInput.getId();
+      eventNames = eventNames.concat(midiInput.mappable.source.map(function(property) {
+        return 'midi:' + id + '.' + property;
+      }));
+    });
+    return eventNames;
   },
 
   sendCommand: function(name, payload, callback) {
@@ -122,11 +92,8 @@ var ControllerView = View.extend({
       this.audioSource.update();
     }
 
-    // if (this.playing) {
-      this.model.frametime = timestamp - this.model.firstframetime;
-
-      this.update();
-    // }
+    this.model.frametime = timestamp - this.model.firstframetime;
+    this.update();
 
     this._arId = window.requestAnimationFrame(this._animate.bind(this));
   },
@@ -340,7 +307,7 @@ var ControllerView = View.extend({
       selector: '.region-left-bottom',
       prepareView: function(el) {
         var parent = this;
-        var styles = window.getComputedStyle(el);
+        var styles = this.computedStyle;
 
         function buildAudioSource() {
           parent.audioSource = new AudioSource({
@@ -379,6 +346,16 @@ var ControllerView = View.extend({
         view.el.classList.add('grow-l');
         view.el.classList.add('region-left-bottom');
 
+        return view;
+      }
+    },
+
+    localforageView: {
+      waitFor: 'el',
+      selector: '.controller > .header',
+      prepareView: function(el) {
+        var view = new LocalforageView({parent: this, model: this.model});
+        el.appendChild(view.render().el);
         return view;
       }
     },
@@ -463,17 +440,16 @@ var ControllerView = View.extend({
   },
 
   toJSON: function() {
-    var obj = this.model.toJSON();
-    obj.mappings = this.mappings.export();
-    return obj;
+    return {
+      signals: this.signals.toJSON(),
+      mappings: this.mappings.toJSON(),
+      layers: this.model.layers.toJSON()
+    };
   },
 
   fromJSON: function(obj) {
-    this.sendCommand('bootstrap', {
-      layers: obj.layers,
-      signals: obj.signals,
-      mappings: obj.mappings
-    });
+    this.router._sendBootstrap(obj);
+    return this;
   },
 
 
@@ -485,23 +461,15 @@ var ControllerView = View.extend({
 
   _setupEditor: function() {
     var view = this;
-    var json = view.toJSON();
     var editor = view.getEditor();
-    var str = JSON.parse(JSON.stringify(json));
-    str = jsYAML.safeDump(str);
 
     editor.editCode({
-      script: str,
+      autoApply: false,
+      title: 'Setup',
+      script: view.gistView.toYaml(),
       language: 'yaml',
-      onvalidchange: function updateSetup(newStr) {
-        var obj;
-        try {
-          obj = jsYAML.safeLoad(newStr);
-          view.fromJSON(obj);
-        }
-        catch(e) {
-          // console..warn(e);
-        }
+      onapply: function(str) {
+        view.router._sendBootstrap(view.gistView.fromYaml(str), view._setupEditor.bind(view));
       }
     });
   },
@@ -519,7 +487,7 @@ var ControllerView = View.extend({
     }
 
     this.regionLeftBottom.focusTab(tabName);
-
+    found.view.blink();
     return this;
   },
 
@@ -564,19 +532,11 @@ var ControllerView = View.extend({
 
           <div class="column worker-performance"></div>
 
-          <div class="column"></div>
-
           <div class="column no-grow control-screen-controls"></div>
-
-          <div class="column"></div>
 
           <div class="column no-grow">
             <button name="screen">Open screen</button>
           </div>
-
-          <!-- <div class="column gutter-horizontal no-grow columns performance">
-            Controller <span class="column sparkline-controller"></span>
-          </div> -->
 
           <div class="column"></div>
 

@@ -1,12 +1,33 @@
 'use strict';
 
-
-
+require.ensure([
+  'ramda',
+  'lodash.assign',
+  'ampersand-state',
+  'ampersand-collection'
+], function() {
+require.ensure([
+  'ampersand-view',
+  'ampersand-view-switcher'
+], function() {
+require.ensure([
+  './mapping/data',
+], function() {
+require.ensure([
+  './layer/state',
+  './layer/svg/state',
+  './layer/img/state',
+  './layer/txt/state',
+  './layer/video/state',
+  './layer/canvas/state',
+], function() {
+require.ensure([
+  './screen/state',
+], function() {
 require.ensure([
   './controller/settings',
   './storage',
   './layer/canvas/scripts',
-  './screen/state',
   './midi/state',
   './midi/view',
   './signal/control-view',
@@ -16,25 +37,13 @@ require.ensure([
 ], function(require) {
 // ---------------------------------------------------------------
 
-var localForage = require('./storage');
-localForage.config({
-  // driver      : localforage.WEBSQL, // Force WebSQL; same as using setDriver()
-  name        : 'visualFiha',
-  version     : 1.0,
-  size        : 4980736, // Size of database, in bytes. WebSQL-only for now.
-  storeName   : 'keyvaluepairs', // Should be alphanumeric, with underscores.
-  description : 'Visual Fiha storage'
-});
-
-// var logger = require('./logging')('purple');
-
 
 
 // almost unique id
 function auid() {
   return parseInt((Math.random() + '.' + performance.now()).replace(/\./g, ''), 10);
 }
-var LoadedWorker = require('worker-loader!./web-worker.js');
+var LoadedWorker = require('worker-loader?name=worker-build.js!./web-worker.js');
 var ControllerView = require('./controller/view');
 var ScreenState = require('./screen/state');
 var MIDIAccessState = require('./midi/state');
@@ -70,31 +79,26 @@ var AppRouter = require('ampersand-router').extend({
         router.mappings.import(payload.mappings || [], true);
         break;
 
+      case 'updateLayer':
+        screen.layers.get(payload.layer.name).set(payload.layer);
+        break;
+
       case 'addLayer':
         screen.layers.add(payload.layer);
         var model = screen.layers.get(payload.layer.name);
-        // logger.info('add layer model', model);
         router.view.showDetails(new DetailsView({
           parent: router.view.layersView,
           model: model
         }));
         break;
+
       case 'updateLayers':
-        // var obj;
-        // for (var l = 0; l < payload.layers.length; l++) {
-        //   obj = payload.layers[l];
-        //   var layer = screen.layers.get(obj.name);
-        //   // logger.info('updating layers in app', obj.name, !!layer);
-        //   if (!layer) {
-        //     // logger.warn('missing layer', obj.name);
-        //     screen.layers.add(obj);
-        //   }
-        //   else {
-        //     layer.set(obj);
-        //   }
-        // }
+        var ft = payload.frametime || 0;
+        signals.trigger('frametime', ft);
+        screen.layers.trigger('frametime', ft);
         screen.layers.set(payload.layers);
         break;
+
       default:
         console.info('unrecognized broadcast command "%s"', command);
     }
@@ -103,6 +107,7 @@ var AppRouter = require('ampersand-router').extend({
 
   _handleWorkerMessages: function(evt) {
     var router = this;
+    var screen = router.model;
     var command = evt.data.command;
     var payload = evt.data.payload || {};
     // logger.info('app incoming worker command "%s"', command);
@@ -110,6 +115,16 @@ var AppRouter = require('ampersand-router').extend({
     switch (command) {
       case 'health':
         router.view.workerPerformance = `~${ ((payload.samplesCount / payload.elapsed) * 1000).toFixed(2) }/${ payload.fps }fps`;
+        break;
+
+      case 'updateLayer':
+        var layerState = screen.layers.get(payload.layer.name);
+        if(layerState) {
+          layerState.set(payload.layer);
+        }
+        else {
+          screen.layers.add(payload.layer);
+        }
         break;
 
       case 'addSignal':
@@ -162,7 +177,9 @@ var AppRouter = require('ampersand-router').extend({
     router.worker = new LoadedWorker();
     router.settings = new Settings('vf');
 
-    var screen = router.model = new ScreenState();
+    var screen = router.model = new ScreenState({}, {
+      router: this
+    });
 
     var mappingContext = {
       context: {
@@ -205,11 +222,11 @@ var AppRouter = require('ampersand-router').extend({
       el: document.querySelector('.controller')
     });
 
-    router.sendCommand('bootstrap', {
-      layers: options.setup.layers,
-      signals: options.setup.signals,
-      mappings: options.setup.mappings
-    });
+    router.defaultSetup = options.setup || {
+      layers: [],
+      signals: [],
+      mappings: []
+    };
   },
 
   sendCommand: function(name, payload, callback) {
@@ -238,51 +255,88 @@ var AppRouter = require('ampersand-router').extend({
 
   routes: {
     '': 'loadSetup',
-    'setup/:setupId': 'loadSetup',
-    'gist/:gistId': 'loadGist'
+    'setup/:setupId': 'loadSetup'
+  },
+
+  _sendBootstrap: function(setup, done) {
+    done = typeof done === 'function' ? done : function() { console.info('APP bootstraped'); };
+    this.once('app:broadcast:bootstrap', done);
+    this.sendCommand('bootstrap', {
+      layers: setup.layers,
+      signals: setup.signals,
+      mappings: setup.mappings
+    });
+  },
+
+  _defaultBootstrap: function() {
+    console.time();
+    var router = this;
+    this._sendBootstrap(this.defaultSetup, function() {
+      console.timeEnd();
+      router.view._setupEditor();
+    });
   },
 
   loadSetup: function(setupId) {
-    // logger.info('use setup?', setupId, VF);
-    // window.VF._defaultSetup
+    console.info('loadSetup', setupId);
+    var router = this;
 
-    // var gistView = this.view.gistView;
-    // var same = gistView.gistId = gistId;
-    // gistView.gistId = gistId;
-    // if (!same) gistView._loadGist();
+    function done(err, setup) {
+      if (err || !setup || !setup.layers || !setup.signals || !setup.mappings) {
+        return router._defaultBootstrap();
+      }
 
+      console.time();
+      router._sendBootstrap(setup, function() {
+        console.timeEnd();
+        router.view._setupEditor();
+      });
+    }
+
+    if (!setupId) {
+      router._defaultBootstrap();
+    }
+    else if (setupId.indexOf('local-') === 0) {
+      router.loadLocal(setupId, done);
+    }
+    else {
+      router.loadGist(setupId, done);
+    }
   },
 
-  loadGist: function(gistId) {
+  loadLocal: function(localId, done) {
+    var localforageView = this.view.localforageView;
+    localforageView.loadLocal(localId, done);
+  },
+
+  loadGist: function(gistId, done) {
     var gistView = this.view.gistView;
-    var same = gistView.gistId = gistId;
+    var same = gistView.gistId === gistId;
     gistView.gistId = gistId;
-    if (!same) gistView._loadGist();
+    if (!same) gistView._loadGist(done);
   }
 });
 
 
 
-localForage.getItem('snapshot').then(function(/*value*/) {
-  var controllerSetup = VF._defaultSetup;
-  controllerSetup.el = document.querySelector('.controller');
 
-  // if (value && confirm('Load previous state?')) {
-  //   controllerSetup.layers = value.screen.layers;
-  //   controllerSetup.signals = value.signals;
-  // }
+var controllerSetup = VF._defaultSetup;
+controllerSetup.el = document.querySelector('.controller');
 
-  var vf = window.visualFiha = new AppRouter({
-    setup: controllerSetup
-  });
-  vf.history.start({
-    root: location.pathname,
-    pushState: false
-  });
+var vf = window.visualFiha = new AppRouter({
+  setup: controllerSetup
 });
-
+vf.history.start({
+  root: location.pathname,
+  pushState: false
+});
 
 
 
 // ---------------------------------------------------------------
-});
+}, 'controller-deps');
+}, 'screen-state');
+}, 'layer-state');
+}, 'mapping-data');
+}, 'ampersand-view');
+}, 'ampersand-data');

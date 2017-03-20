@@ -1,83 +1,66 @@
 'use strict';
-var _ids = 0;
 var ScreenLayerView = require('./../view');
+
 module.exports = ScreenLayerView.types.SVG = ScreenLayerView.extend({
   autoRender: true,
 
   template: function() {
-    return '<div class="layer-svg" layer-id="' + this.model.cid + '" view-id="' + this.cid + '"></div>';
+    return '<div class="layer-svg" id="' + this.model.getId() + '" view-id="' + this.cid + '"></div>';
   },
 
-  // bindings: require('lodash.assign')({
-  // }, ScreenLayerView.prototype.bindings),
-
-
-  // derived: {
-  //   styleEl: {
-  //     deps: ['model.src'],
-  //     fn: function() {
-  //       var el = document.createElement('style');
-  //       el.id = this.cid;
-  //       document.head.appendChild(el);
-  //       return el;
-  //     }
-  //   }
-  // },
-
-  extractStyles: function() {
-    var self = this;
-    this.queryAll('[style]').forEach(function(el) {
-      if (!el.id) {
-        _ids++;
-        el.id = 'auto-svg-id-' + _ids;
+  derived: {
+    svg: {
+      deps: ['el', 'model.content'],
+      fn: function() {
+        return this.el && this.model.content ? this.query('svg') || false : false;
       }
+    }
+  },
 
-      self.addRule('#' + el.id, el.getAttribute('style'));
-      el.removeAttribute('style');
-    });
+  updateStyles: function() {
+    if (!this.model.active || !this.el) return this;
+    var selectors = Object.keys(this.model.svgStyles);
+    selectors.forEach(function(selector) {
+      this.addRule(selector, this.model.svgStyles[selector]);
+    }, this);
     return this;
   },
 
-  editStyles: function() {
-
+  updateProperties: function() {
+    if (!this.model.active || !this.el) return this;
+    this.model.styleProperties.forEach(function(styleProp) {
+      this.setProperty(styleProp.name, styleProp.value);
+    }, this);
+    return this;
   },
 
-  loadSVG: function() {
-    var view = this;
-    var src = view.model.src;
-    var el = view.el;
-    if (!src || !el) {
-      return;
-    }
+  updateContent: function() {
+    if (!this.el || this.el.innerHTML === this.model.content) return this;
 
-    fetch(src)
-    .then(function(response) {
-      return response.text();
-    })
-    .then(function(txt) {
-      el.innerHTML = txt;
-      view.extractStyles();
-    });
+    this.el.innerHTML = this.model.content;
+    this.updateStyles().updateProperties();
   },
 
   initialize: function() {
     ScreenLayerView.prototype.initialize.apply(this, arguments);
-    this.on('change:rendered', this.loadSVG);
-    this.listenToAndRun(this.model, 'change:src', this.loadSVG);
+    this.updateContent().updateStyles().updateProperties();
+
+    this.listenTo(this.model, 'change:content', this.updateContent);
+    this.on('change:el', this.updateContent);
+
+    this.listenToAndRun(this.model, 'change:svgStyles', this.updateStyles);
+    this.listenToAndRun(this.model.styleProperties, 'sort change', this.updateProperties);
+  },
+
+  addRule: function(selector, properties) {
+    selector = 'svg ' + selector;
+    ScreenLayerView.prototype.addRule.call(this, selector, properties);
+    return this;
   },
 
   remove: function() {
     var style = this.styleEl;
-    style.parentNode.removeChild(style);
+    if (style && style.parentNode) style.parentNode.removeChild(style);
     ScreenLayerView.prototype.remove.apply(this, arguments);
-  },
-
-  render: function() {
-    if (this.el) {
-      return this;
-    }
-
-    this.renderWithTemplate();
-    return this;
   }
 });

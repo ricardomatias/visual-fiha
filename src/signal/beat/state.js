@@ -9,12 +9,12 @@ var BeatState = SignalState.types.beat = SignalState.extend({
     });
   },
 
-  props: {
+  session: {
     frametime: ['number', true, 0]
   },
 
   mappable: {
-    source: ['result', 'timeBetweenBeats'],
+    source: ['result', 'timeBetweenBeats', 'beatNum'],
     target: ['input']
   },
 
@@ -23,6 +23,12 @@ var BeatState = SignalState.types.beat = SignalState.extend({
       deps: ['timeBetweenBeats', 'frametime'],
       fn: function() {
         return this.computeSignal();
+      }
+    },
+    beatNum: {
+      deps: ['timeBetweenBeats', 'frametime'],
+      fn: function() {
+        return this.frametime ? Math.floor(this.frametime / this.timeBetweenBeats) : 0;
       }
     },
     timeBetweenBeats: {
@@ -34,11 +40,9 @@ var BeatState = SignalState.types.beat = SignalState.extend({
   },
 
   computeSignal: function() {
-    var frametime = this.frametime;
-    var preTransform = !frametime ? 0 : (100 - (((frametime % this.timeBetweenBeats) / this.timeBetweenBeats) * 100));
-    return preTransform;
-    // var result = SignalState.prototype.computeSignal.apply(this, [preTransform]);
-    // return result;
+    var ft = this.frametime;
+    var tbb = this.timeBetweenBeats;
+    return !ft ? 0 : (100 - (((ft % tbb) / tbb) * 100));
   }
 });
 

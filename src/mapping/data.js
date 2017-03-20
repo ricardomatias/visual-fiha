@@ -1,9 +1,15 @@
 'use strict';
 
 var resolve = require('./../resolve');
-
+var assign = require('lodash.assign');
 var State = require('ampersand-state');
 var Collection = require('ampersand-collection');
+
+function cleanFnFromExport(item) {
+  item.transformFunction = item.transformFunction || item.fn.toString();
+  delete item.fn;
+  return item;
+}
 
 function compileTransformFunction(fn) {
   fn = fn || function(val) { return val; };
@@ -158,12 +164,29 @@ var Mappings = Collection.extend({
     return this;
   },
 
+  serialize: function() {
+    return Collection.prototype
+            .serialize.apply(this, arguments)
+            .map(cleanFnFromExport);
+  },
+
+  toJSON: function () {
+    return this.map(function (model) {
+      if (model.toJSON) {
+        return model.toJSON();
+      }
+      else {
+        var out = {};
+        assign(out, model);
+        delete out.collection;
+        return out;
+      }
+    })
+    .map(cleanFnFromExport);
+  },
+
   export: function() {
-    return this.serialize().map(function(item) {
-      item.transformFunction = item.transformFunction || item.fn.toString();
-      delete item.fn;
-      return item;
-    });
+    return this.serialize();
   },
 
   resolve: function(path) {
@@ -176,7 +199,10 @@ var Mappings = Collection.extend({
         var parts = target.split('.');
         var targetProperty = parts.pop();
         var targetStatePath = parts.join('.');
-        var state = this.resolve(targetStatePath);
+        var state;
+        try {
+          state = this.resolve(targetStatePath);
+        } catch(e) {}
         if (!state) return;
 
         var finalValue = info.fn(value, state.get(targetProperty));

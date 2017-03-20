@@ -1,7 +1,23 @@
 'use strict';
 var LayerControlView = require('./../control-view');
+var LayerDetailsView = require('./../details-view');
 var assign = require('lodash.assign');
 var objectPath = require('./../../object-path');
+
+var CanvasLayerDetailsView = LayerDetailsView.extend({
+  template: `
+    <section>
+      <header>
+        <div class="columns">
+          <h3 class="column">Details for <span data-hook="name"></span> <small>sublayer</small></h3>
+          <div class="column no-grow"><button class="vfi-eye" name="show-origin"></button></div>
+        </div>
+        <h5 data-hook="object-path"></h5>
+      </header>
+      <div class="row mappings props"></div>
+    </section>
+  `
+});
 
 var CanvasControlLayerView = LayerControlView.extend({
   template: `
@@ -10,7 +26,7 @@ var CanvasControlLayerView = LayerControlView.extend({
         <div class="column no-grow"><button name="active"></button></div>
         <div class="column no-grow"><button class="edit-draw-function vfi-cog-alt"></button></div>
         <h3 class="column canvas-layer-name gutter-horizontal" data-hook="name"></h3>
-        <div class="column no-grow text-right"><button class="vfi-trash-empty remove-canvas-layer"></button></div>
+        <div class="column no-grow"><button class="vfi-trash-empty" name="remove-canvas-layer"></button></div>
       </header>
     </section>
   `,
@@ -21,20 +37,23 @@ var CanvasControlLayerView = LayerControlView.extend({
   },
 
   commands: {
-    'click .remove-canvas-layer': 'removeLayer _layerName',
+    'click [name=remove-canvas-layer]': 'removeLayer _layerName',
     'click [name="active"]': 'propChange _toggleActive',
   },
-
 
   _editDrawFunction: function () {
     var rootView = this.rootView;
     var path = objectPath(this.model);
-
     var editor = rootView.getEditor();
+
     editor.editCode({
-      script: this.model.drawFunction.toString(),
-      autoApply: true,
+      script: this.model.drawFunction || '',
       language: 'javascript',
+      title: path + '.drawFunction',
+      onshoworigin: function() {
+        rootView.trigger('blink', path);
+      },
+      autoApply: true,
       onvalidchange: function doneEditingCanvasDrawFunction(str) {
         rootView.sendCommand('propChange', {
           path: path,
@@ -43,6 +62,13 @@ var CanvasControlLayerView = LayerControlView.extend({
         });
       }
     });
+  },
+
+  _showDetails: function () {
+    this.rootView.showDetails(new CanvasLayerDetailsView({
+      parent: this,
+      model: this.model
+    }));
   },
 
   bindings: {
@@ -75,6 +101,7 @@ module.exports = LayerControlView.types.canvas = LayerControlView.extend({
       <header class="rows">
         <div class="row columns">
           <div class="column no-grow"><button class="active prop-toggle"></button></div>
+          <div class="column no-grow"><button class="edit-css vfi-code"></button></div>
           <h3 class="column layer-name" data-hook="name"></h3>
         </div>
 

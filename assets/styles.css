@@ -1,3 +1,5 @@
+@import "font/vf-embedded.css";
+
 :root {
   --base-color: #fff;
   --bg-color: #272822;
@@ -41,8 +43,8 @@ body {
 .test-page a:visited {
   color: var(--yes-color);
   text-decoration: none;
-  box-shadow: 0 -2px 0 0 var(--bg-color) inset,
-              0 -3px 0 0 currentColor inset;
+  box-shadow: 0 -1px 0 0 var(--bg-color) inset,
+              0 -2px 0 0 currentColor inset;
   text-shadow: -3px 1px 0 var(--bg-color),
                3px 1px 0 var(--bg-color),
                -2px 1px 0 var(--bg-color),
@@ -76,97 +78,6 @@ body {
   text-align: center;
 }
 
-/*
-Icons
-*/
-@font-face {
-  font-family: 'vf';
-  src: url('font/vf.eot?41117676');
-  src: url('font/vf.eot?41117676#iefix') format('embedded-opentype'),
-       url('font/vf.woff2?41117676') format('woff2'),
-       url('font/vf.woff?41117676') format('woff'),
-       url('font/vf.ttf?41117676') format('truetype'),
-       url('font/vf.svg?41117676#vf') format('svg');
-  font-weight: normal;
-  font-style: normal;
-}
-/* Chrome hack: SVG is rendered more smooth in Windozze. 100% magic, uncomment if you need it. */
-/* Note, that will break hinting! In other OS-es font will be not as sharp as it could be */
-/*
-@media screen and (-webkit-min-device-pixel-ratio:0) {
-  @font-face {
-    font-family: 'vf';
-    src: url('font/vf.svg?92236338#vf') format('svg');
-  }
-}
-*/
-
-[class^="vfi-"]:before, [class*=" vfi-"]:before {
-  font-family: "vf";
-  font-style: normal;
-  font-weight: normal;
-  speak: none;
-
-  display: inline-block;
-  text-decoration: inherit;
-  text-align: center;
-  /* opacity: .8; */
-
-  /* For safety - reset parent styles, that can break glyph codes*/
-  font-variant: normal;
-  text-transform: none;
-
-  /* fix buttons height, for twitter bootstrap */
-
-  /* Animation center compensation - margins should be symmetric */
-  /* remove if not needed */
-
-  /* you can be more comfortable with increased icons size */
-  /* font-size: 120%; */
-
-  /* Font smoothing. That was taken from TWBS */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  /* Uncomment for 3D effect */
-  /* text-shadow: 1px 1px 1px rgba(127, 127, 127, 0.3); */
-  vertical-align: inherit;
-}
-
-.vfi-play:before { content: '\e800'; } /* '' */
-.vfi-stop:before { content: '\e801'; } /* '' */
-.vfi-pause:before { content: '\e802'; } /* '' */
-.vfi-wrench:before { content: '\e803'; } /* '' */
-.vfi-cog-alt:before { content: '\e804'; } /* '' */
-.vfi-link:before { content: '\e805'; } /* '' */
-.vfi-lock:before { content: '\e806'; } /* '' */
-.vfi-lock-open:before { content: '\e807'; } /* '' */
-.vfi-clock:before { content: '\e808'; } /* '' */
-.vfi-login:before { content: '\e809'; } /* '' */
-.vfi-logout:before { content: '\e80a'; } /* '' */
-.vfi-trash-empty:before { content: '\e80b'; } /* '' */
-.vfi-resize-vertical:before { content: '\e80c'; } /* '' */
-.vfi-pencil:before { content: '\e80d'; } /* '' */
-.vfi-block:before { content: '\e80e'; } /* '' */
-.vfi-cancel:before { content: '\e80f'; } /* '' */
-.vfi-ok:before { content: '\e810'; } /* '' */
-.vfi-minus:before { content: '\e811'; } /* '' */
-.vfi-eye-off:before { content: '\e812'; } /* '' */
-.vfi-eye:before { content: '\e813'; } /* '' */
-.vfi-plus:before { content: '\e815'; } /* '' */
-.vfi-attach:before { content: '\e817'; } /* '' */
-.vfi-circle:before { content: '\f111'; } /* '' */
-.vfi-gamepad:before { content: '\f11b'; } /* '' */
-.vfi-keyboard:before { content: '\f11c'; } /* '' */
-.vfi-code:before { content: '\f121'; } /* '' */
-.vfi-unlink:before { content: '\f127'; } /* '' */
-.vfi-mic:before { content: '\f130'; } /* '' */
-.vfi-mute:before { content: '\f131'; } /* '' */
-.vfi-minus-squared-alt:before { content: '\f147'; } /* '' */
-.vfi-plus-squared-alt:before { content: '\f196'; } /* '' */
-.vfi-sliders:before { content: '\f1de'; } /* '' */
-.vfi-toggle-off:before { content: '\f204'; } /* '' */
-.vfi-toggle-on:before { content: '\f205'; } /* '' */
 
 
 
@@ -177,8 +88,7 @@ button,
 select,
 textarea,
 [contenteditable=true],
-input:not([type=checkbox]),
-input:not([type=radio]) {
+input:not([type=checkbox]):not([type=radio]) {
   display: inline-block;
   line-height: 1;
   font-size: inherit;
@@ -188,19 +98,18 @@ input:not([type=radio]) {
   background: transparent;
   margin: 0;
   padding: var(--spacing);
+  box-shadow: 0 0 1px 0 currentColor inset;
 }
 select,
 textarea,
 [contenteditable=true],
-input:not([type=checkbox]),
-input:not([type=radio]) {
+input:not([type=checkbox]):not([type=radio]) {
   color: var(--editable-color);
 }
 select[disabled],
 textarea[disabled],
 [contenteditable=true][disabled],
-input:not([type=checkbox])[disabled],
-input:not([type=radio])[disabled] {
+input[disabled]:not([type=checkbox]):not([type=radio]) {
   color: currentColor;
 }
 
@@ -246,10 +155,16 @@ input:not([type=radio]):error {
 button {
   border-radius: 0.1em;
   cursor: pointer;
+  line-height: 1.2;
 }
 button[disabled] {
   cursor: not-allowed;
   color: var(--text-color-disabled);
+}
+
+button.default {
+  background-color: var(--text-color);
+  color: var(--text-color-contrast);
 }
 
 .yes {
@@ -270,8 +185,25 @@ button.no {
   border: 1px solid var(--no-color);
   background-color: var(--no-color);
 }
-input {
-  border-bottom: 1px dashed currentColor;
+input:not([type=radio]):not([type=checkbox]) {
+  /* border-bottom: 1px dashed currentColor; */
+}
+
+/*
+blinking
+*/
+.blink {
+  animation-duration: 1s;
+  animation-name: blink;
+}
+@keyframes blink {
+  from {
+    box-shadow: 0 0 var(--spacing) var(--spacing) var(--highlight-color) inset;
+  }
+
+  to {
+    box-shadow: 0 0 0 0 var(--highlight-color) inset;
+  }
 }
 
 /*
@@ -381,7 +313,7 @@ input.gutter-vertical {
   margin-bottom: var(--spacing);
 }
 
-.column > input {
+.column > input:not([type=checkbox]):not([type=radio]) {
   width: 100%;
 }
 
@@ -403,7 +335,7 @@ Layout
   max-width: 750px;
   margin: auto;
   padding: 1vw;
-  color: var(--text-color-alt);
+  color: var(--text-color);
 }
 @media (max-width: 1280px) {
   .index-page .page-content {
@@ -420,7 +352,7 @@ Layout
   margin: auto;
   text-align: center;
   font-size: 10px;
-  color: var(--value-color);
+  color: var(--highlight-color);
 }
 .index-page pre:first-child > code {
   display: inline-block;
@@ -486,6 +418,13 @@ Layout
 .code-editor .ace-editor {
   overflow: hidden;
   height: calc(100% - 37px);
+}
+
+.code-editor.autoapply .ace-editor {
+  height: 100%;
+}
+.code-editor.autoapply .ace-controls {
+  display: none;
 }
 
 .tabs {
@@ -632,8 +571,7 @@ Canvas layer controls
 .canvas-layer:hover {
 }
 
-section,
-.items > * {
+section {
   box-shadow: 0 0 1px 0 #000 inset,
               0 0 1px 0 currentColor;
 }
@@ -657,13 +595,10 @@ section.disabled:hover button {
 header h3,
 header h5 {
   margin: 0;
+  font-weight: 400;
   padding: var(--spacing);
 }
-header h3,
-header button {
-  font-weight: 400;
-  font-size: 1.1rem;
-  line-height: 1.25rem;
+header h3 {
   cursor: pointer;
 }
 header > .column.no-grow {
@@ -671,6 +606,20 @@ header > .column.no-grow {
 }
 header h3 {
   flex-grow: 2;
+}
+
+h3 small {
+  vertical-align: super;
+  display: inline-block;
+  border-radius: var(--spacing);
+  background-color: var(--info-color);
+  color: var(--text-color-contrast);
+  padding: 2px 4px;
+}
+header h3 span:before,
+header h3 span:after {
+  content: '"';
+  display: inline;
 }
 
 .object-prop {}
@@ -683,8 +632,10 @@ header h3 {
 }
 .prop-value input {
   margin: auto;
-  width: auto;
   max-width: 100%;
+}
+.prop-toggle-btn {
+  width: 100%;
 }
 
 .result-dot,
@@ -710,8 +661,8 @@ header h3 {
 }
 .signal-beat .detector button {
   padding: 1rem;
-  min-width: 100px;
-  max-width: 200px;
+  width: 10vmax;
+  height: 10vmax;
   margin: var(--spacing) auto;
   display: block;
   text-align: center;
@@ -811,8 +762,10 @@ UI state
 }
 
 .mapping-emitter-view .items {
-  margin-left: var(--spacing);
-  border-left: 1px solid var(--text-color-disabled);
+  margin: 0 calc(var(--spacing) * 2);
+  border: 1px solid var(--text-color-disabled);
+  border-width: 0 1px;
+  padding: 0 var(--spacing) var(--spacing) var(--spacing);
 }
 .mapping-emitter-view .items:empty {
   display: none;
@@ -830,8 +783,12 @@ details
 SVG layer
 */
 .layer-svg > svg {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+}
+.layer-svg > svg * {
+  transform-origin: center;
 }
 
 /*
@@ -863,7 +820,9 @@ browser support
 }
 
 .screen > * {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
   top: 0;
   left: 0;
@@ -871,7 +830,8 @@ browser support
   bottom: 0;
   padding: 0;
   margin: auto;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
   will-change: opacity, transformation;
 }

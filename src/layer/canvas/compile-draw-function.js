@@ -8,6 +8,10 @@ utils.random = function random(multi = 100) {
   return Math.random() * multi;
 };
 
+utils.between = function between(val, min, max) {
+  return Math.max(min, Math.min(max, val));
+};
+
 
 utils.log = function log(ctx, ...args) {
   console.info(...args);
@@ -54,8 +58,8 @@ utils.dot = function dot(ctx, ...args) {
 
 /**
  * circle
- * @param [x]
- * @param [y]
+ * @param [x]: <center>
+ * @param [y]: <center>
  * @param [radius]: 10
  * @param [start]: 0
  * @param [end]: 360
@@ -93,14 +97,20 @@ utils.line = function line(ctx, ...args) {
   ctx.stroke();
 };
 
-
+/**
+ * polygone
+ * @param [x]: <center>
+ * @param [y]: <center>
+ * @param [size]: 30
+ * @param [sides]: 3
+ */
 utils.polygone = function polygone(ctx, ...args) {
   ctx.beginPath();
   var sides, angle, i, x, y, lx, ly, size;
   [
     x,
     y,
-    size,
+    size = 30,
     sides = 3
   ] = args;
   var shift = Math.PI * 0.5;
@@ -138,6 +148,48 @@ utils.grid = function grid(width, height, itemsCount, rowsCount, process) {
       xy[0] = columnWidth * (c + 0.5);
       process(...xy);
     }
+  }
+};
+
+
+/*
+function () {
+  var cx = width / 2;
+  var cy = height / 2;
+  var i = 0;
+  var r;
+  var s = -10;
+  fillStyle('#fff');
+  distribute(cx, cy, 12, cy, (layer.frametime % (360 * s)) / s, function(x, y, a) {
+    r = (cy / 12) * i;
+    fillText(a.toFixed(2), cx + (Math.cos(a) * r), cy + (Math.sin(a) * r));
+    i++;
+  });
+}
+*/
+utils.distribute = function distribute(x, y, itemsCount, r, tilt, process) {
+  itemsCount = itemsCount || 2;
+  tilt = tilt || 0;
+  process = typeof process === 'function' ? process : noop;
+  var i, a, args;
+  var rad = Math.PI * 2;
+  for (i = 0; i < itemsCount; i++) {
+    a = ((rad / itemsCount) * i) - Math.PI + ((rad / 360) * tilt);
+    args = [
+      x + (Math.cos(a) * r),
+      y + (Math.sin(a) * r),
+      a
+    ];
+    process(...args);
+  }
+};
+
+
+
+utils.repeat = function repeat(times, process, ...args) {
+  process = typeof process === 'function' ? process : noop;
+  for (var i = 0; i < times; i++) {
+    process(i, ...args);
   }
 };
 
@@ -218,11 +270,14 @@ function compileFunction(drawFunction) {
     };
 
     ${ ctxProperties }
-
+    /*
     ${ ramdaMethods }
-
+    */
     var random = utils.random;
+    var between = utils.between;
     var grid = function(...args) { utils.grid(width, height, ...args); };
+    var distribute = function(...args) { utils.distribute(...args); };
+    var repeat = function(...args) { utils.repeat(...args); };
     var log = function(...args) { utils.log(ctx, ...args); };
     var txt = function(...args) { utils.txt(ctx, ...args); };
     var dot = function(...args) { utils.dot(ctx, ...args); };

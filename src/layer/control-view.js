@@ -1,14 +1,16 @@
 'use strict';
 var View = require('./../controller/control-view');
-var DetailsView = require('./../controller/details-view');
+var LayerDetailsView = require('./details-view');
 var objectPath = require('./../object-path');
 
 var LayerControlView = View.extend({
   template: `
     <section class="default-layer-control">
       <header class="columns">
-        <div class="column no-grow"><button class="active prop-toggle"></button></div>
+        <div class="column no-grow gutter-right"><button class="active prop-toggle"></button></div>
+        <div class="column no-grow gutter-horizontal"><button class="edit-css vfi-code"></button></div>
         <h3 class="column layer-name gutter-left" data-hook="name"></h3>
+        <div class="column no-grow text-right"><button class="vfi-trash-empty remove-layer"></button></div>
       </header>
 
       <div class="preview gutter-horizontal"></div>
@@ -18,16 +20,42 @@ var LayerControlView = View.extend({
   `,
 
   events: {
+    'click .edit-css': '_editLayerStyles',
     'click .layer-name': '_showDetails'
   },
 
 
-
   _showDetails: function () {
-    this.rootView.showDetails(new DetailsView({
+    var DetailsViewConstructor = LayerDetailsView.types ? LayerDetailsView.types[this.model.getType()] : false;
+    DetailsViewConstructor = DetailsViewConstructor || LayerDetailsView;
+    this.rootView.showDetails(new DetailsViewConstructor({
       parent: this,
       model: this.model
     }));
+  },
+
+  _editLayerStyles: function () {
+    var view = this;
+    var rootView = view.rootView;
+    var editorView = rootView.getEditor();
+    var id = view.model.getId();
+    editorView.editCode({
+      script: '#' + id + ' {\n' + this.model.layerStyles + '\n}',
+      language: 'css',
+      title: id + ' layer styles',
+      onshoworigin: function() {
+        rootView.trigger('blink', 'layers.' + id);
+      },
+      autoApply: true,
+      onvalidchange: function (str) {
+        var cleaned = str.split('{').pop().split('}').shift().trim();
+        view.sendCommand('propChange', {
+          path: 'layers.' + id,
+          property: 'layerStyles',
+          value: cleaned
+        });
+      }
+    });
   },
 
   commands: {
@@ -77,6 +105,15 @@ var LayerControlView = View.extend({
         type: 'class'
       }
     ]
+  },
+
+  derived: {
+    modelPath: {
+      deps: ['model'],
+      fn: function() {
+        return objectPath(this.model);
+      }
+    }
   }
 });
 

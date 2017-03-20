@@ -1,6 +1,5 @@
 'use strict';
 var View = require('ampersand-view');
-var objectPath = require('./../object-path');
 
 function noop() {}
 
@@ -13,8 +12,18 @@ function splitClean(str) {
 var ControlView = View.extend({
   _commandsBound: false,
 
+  blink: function() {
+    var classes = this.el.classList;
+    this.el.addEventListener('animationend', function() {
+      classes.remove('blink');
+    });
+    if (!classes.contains('blink')) {
+      classes.add('blink');
+    }
+    return this;
+  },
+
   initialize: function() {
-    View.prototype.initialize.apply(this, arguments);
     var view = this;
 
     function initCommands() {
@@ -27,6 +36,11 @@ var ControlView = View.extend({
     }
 
     view.on('change:el', initCommands);
+
+    view.listenTo(view.rootView, 'blink', function(modelPath) {
+      console.info('blink', view.modelPath, view.modelPath && view.modelPath === modelPath);
+      if (view.modelPath && view.modelPath === modelPath) view.blink();
+    });
   },
 
   derived:{
@@ -132,13 +146,6 @@ var ControlView = View.extend({
   remove: function() {
     this.unbindCommands();
     return View.prototype.remove.apply(this, arguments);
-  },
-
-  setObjectPropCmd: function() {
-    // logger..info('setObjectPropCmd', {
-    //   objectPath: objectPath(this.model),
-    //   property: this.model.name
-    // });
   }
 });
 

@@ -1,78 +1,85 @@
 'use strict';
 var ScreenLayerState = require('./../state');
-var tXML = require('txml');
-
-function loadSVG(url, done) {
-  done = done || function(err/*, obj*/) {
-    console.warn(err.message);
-  };
-
-  fetch(url)
-    .then(function(res) {
-      return res.text();
-    })
-    .then(function(string) {
-      done(null, string);
-    })
-    .catch(done);
-}
-
-
+var Extractor = require('./extractor');
 
 module.exports = ScreenLayerState.types.SVG = ScreenLayerState.extend({
   props: {
+    svgStyles: ['object', true, function() { return {}; }],
     src: ['string', false, null]
   },
-
   session: {
-    _loaded: 'string'
-  },
-
-  initialize: function() {
-    ScreenLayerState.prototype.initialize.apply(this, arguments);
-    this.on('change:src', function() {
-      if (!this.src) return this.set('_loaded', '');
-
-      loadSVG(this.src, function(err, loaded) {
-        this.set('_loaded', err ? '' : loaded);
-      });
-    });
+    content: ['string', false, '']
   },
 
   derived: {
-    data: {
-      deps: ['_loaded'],
+    mappable: {
+      deps: [],
       fn: function() {
-        if (!this._loaded) {
-          return {
-            xml: '',
-            styles: {}
-          };
-        }
-
-        var styles = {};
-        try {
-          tXML(this._loaded, {
-            filter: function(child) {
-              return child.attributes && child.attributes.id && child.attributes.style;
-            }
-          }).forEach(function(node) {
-            styles[node.attributes.id] = node.attributes.style;
-          });
-        }
-        catch (e) {
-          return {
-            xml: '',
-            styles: {}
-          };
-        }
-
-        console.info('styles from %s', this.src, styles);
         return {
-          xml: this._loaded,
-          styles: styles
+          source: [],
+          target: [
+            'active',
+            'styleProperties'
+          ]
         };
       }
     }
+  },
+
+  initialize: function() {
+    var svgState = this;
+    ScreenLayerState.prototype.initialize.apply(svgState, arguments);
+
+    // only load SVG content on the worker
+    if (!svgState.hasDOM) {
+      svgState.listenToAndRun(svgState, 'change:src', function() {
+        if (svgState.src) svgState.loadSVG();
+      });
+    }
+    // only create an extractor for the state used in the controller
+    else if (svgState.isControllerState) {
+      svgState.extractor = new Extractor({
+        model: svgState
+      });
+    }
+  },
+
+  loadSVG: function(done) {
+    var state = this;
+    done = done || function(err/*, obj*/) {
+      if (err) {
+        state.content = '';
+        console.warn(err.message);
+      }
+    };
+
+    if (!state.src) {
+      state.content = '';
+      return done(new Error('No src to load for ' + state.getId() + ' SVG layer'));
+    }
+
+    fetch(state.src)
+      .then(function(res) {
+        return res.text();
+      })
+      .then(function(string) {
+        state.set({
+          content: string
+        });
+        done(null, state);
+      })
+      .catch(done);
+  },
+
+  serialize: function() {
+    var obj = ScreenLayerState.prototype.serialize.apply(this, arguments);
+    obj.content = this.content;
+    return obj;
+  },
+
+  toJSON: function() {
+    var obj = ScreenLayerState.prototype.toJSON.apply(this, arguments);
+    delete obj.content;
+    return obj;
   }
 });
