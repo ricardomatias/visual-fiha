@@ -13,13 +13,28 @@ var LocalforageView = View.extend({
       <div class="column columns">
         <div class="column"><input placeholder="Local ID" name="local-id"/></div>
         <div class="column no-grow"><button name="save">Save</button></div>
+        <div class="column"><button name="restore" class="vfi-ccw" title="Reload"></button></div>
       </div>
     </div>
   `,
   events: {
+    'focus [name=local-id]': '_suggestKeys',
     'click [name=snapshot-restore]': '_restoreSnapshot',
     'click [name=snapshot-save]': '_saveSnapshot',
+    'click [name=restore]': '_restoreSetup',
     'click [name=save]': '_saveSetup'
+  },
+  _suggestKeys: function(evt) {
+    var helper = this.parent.suggestionHelper;
+    localForage.keys().then(function(keys) {
+
+      helper
+        .attach(evt.target, function(selected) {
+          evt.target.value = selected;
+          helper.detach();
+        })
+        .fill(keys.map(s => s.replace('local-', '')));
+    });
   },
   loadLocal: function(setupId, done) {
     done = typeof done === 'function' ? done : function(err) { if(err) console.error('localforage error', err.message); };
